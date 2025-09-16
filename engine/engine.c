@@ -79,8 +79,39 @@ void matrix_multiply(double out[4][4], double mat[4][4], double vec[4][4])
     }
 }
 
-void transform_to_screen()
+void __ARESengine__displayUpdate()
 {
+	// init all axis
+	
+	// z_axis = (camera_pos - look_at) / ||camera_pos - look_at||
+	vectSub(&z_axis, &camera_pos, &look_at);
+	vectDiv(&z_axis, vectNorm(&z_axis));
+
+	// x_axis = cross(up, z_axis) / ||cross(up, z_axis)||
+	vectCross(&x_axis, &up, &z_axis);
+	vectDiv(&x_axis, vectNorm(&x_axis));
+
+	// y_axis = cross(z_axis, x_axis)
+	vectCross(&y_axis, &z_axis, &x_axis);
+
+
+	// init view matrix
+	view_matrix[0][0] = x_axis.x;
+	view_matrix[0][1] = x_axis.y;
+	view_matrix[0][2] = x_axis.z;
+	view_matrix[0][3] = -vectDot(&x_axis, &camera_pos);
+
+	view_matrix[1][0] = y_axis.x;
+	view_matrix[1][1] = y_axis.y;
+	view_matrix[1][2] = y_axis.z;
+	view_matrix[1][3] = -vectDot(&y_axis, &camera_pos);
+
+	view_matrix[2][0] = z_axis.x;
+	view_matrix[2][1] = z_axis.y;
+	view_matrix[2][2] = z_axis.z;
+	view_matrix[2][3] = -vectDot(&z_axis, &camera_pos);
+
+
     double vertices_view[NUM_VERTICES][4];
     double vertices_clip[NUM_VERTICES][4];
     double vertices_ndc[NUM_VERTICES][3];
@@ -133,7 +164,7 @@ void transform_to_screen()
         vertices_ndc[i][2] = vertices_clip[i][2] / w;
     }
 
-    // Map NDC to screen coordinates
+    // map NDC to screen coordinates
     for (int i = 0; i < NUM_VERTICES; i++)
 	{
         double x_ndc = vertices_ndc[i][0];
@@ -142,7 +173,7 @@ void transform_to_screen()
         vertices_screen[i].y = (int)((1 - y_ndc) * 0.5 * screen_height);
     }
 
-    // Draw each face
+    // draw each face
     for (int f = 0; f < NUM_FACES; f++)
 	{
         XPoint face_vertices_temp[5];
@@ -164,38 +195,8 @@ void transform_to_screen()
 }
 
 
-int	engineInit(void)
+int	__ARESengine__Init(char *window_name, int window_width, int window_height)
 {
-	// init all axis
-	
-	// z_axis = (camera_pos - look_at) / ||camera_pos - look_at||
-	vectSub(&z_axis, &camera_pos, &look_at);
-	vectDiv(&z_axis, vectNorm(&z_axis));
-
-	// x_axis = cross(up, z_axis) / ||cross(up, z_axis)||
-	vectCross(&x_axis, &up, &z_axis);
-	vectDiv(&x_axis, vectNorm(&x_axis));
-
-	// y_axis = cross(z_axis, x_axis)
-	vectCross(&y_axis, &z_axis, &x_axis);
-
-
-	// init view matrix
-	view_matrix[0][0] = x_axis.x;
-	view_matrix[0][1] = x_axis.y;
-	view_matrix[0][2] = x_axis.z;
-	view_matrix[0][3] = -vectDot(&x_axis, &camera_pos);
-
-	view_matrix[1][0] = y_axis.x;
-	view_matrix[1][1] = y_axis.y;
-	view_matrix[1][2] = y_axis.z;
-	view_matrix[1][3] = -vectDot(&y_axis, &camera_pos);
-
-	view_matrix[2][0] = z_axis.x;
-	view_matrix[2][1] = z_axis.y;
-	view_matrix[2][2] = z_axis.z;
-	view_matrix[2][3] = -vectDot(&z_axis, &camera_pos);
-
 	// init f and projection matrix
 	f = 1 / approx_tan(fov / 2);
 
@@ -204,6 +205,8 @@ int	engineInit(void)
 	projection_matrix[2][2] = (far + near) / (near - far);
 	projection_matrix[2][3] = (2 * far * near) / (near - far);
 
-
-	return (0);
+	screen_width = window_width;
+	screen_height = window_height;
+	
+	return (setupWindow(screen_width, screen_height, window_name));
 }

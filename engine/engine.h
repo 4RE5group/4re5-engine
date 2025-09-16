@@ -7,6 +7,7 @@
 // definitions
 #define PI	3.14159265359
 
+
 typedef struct {
 	double x, y, z;
 }		Vect3;
@@ -22,8 +23,9 @@ double	vectDot(Vect3 *vect1, Vect3 *vect2);
 // engine.c
 extern Vect3	camera_pos;
 extern Vect3	look_at;
-int		engineInit(void);
-void	transform_to_screen(void);
+extern Vect3	up;
+int		__ARESengine__Init(char *window_name, int window_width, int window_height);
+void	__ARESengine__displayUpdate(void);
 
 // math.c
 double	fast_sqrt(float nb);
