@@ -9,7 +9,7 @@ int						screen;
 
 int	setupWindow(int width, int height, const char *name)
 {
-	// Open connection to the X server
+	// open connection to the X server
 	display = XOpenDisplay(NULL);
 	if (!display) {
 		// fprintf(2, "Cannot open display\n");
@@ -18,7 +18,7 @@ int	setupWindow(int width, int height, const char *name)
 
 	screen = DefaultScreen(display);
 
-	// Create a window
+	// create a window
 	window_attrs.background_pixel = WhitePixel(display, screen);
 	window_attrs.event_mask = ExposureMask | KeyPressMask;
 	window_mask = CWBackPixel | CWEventMask;
@@ -31,17 +31,14 @@ int	setupWindow(int width, int height, const char *name)
 		window_mask, &window_attrs
 	);
 
-	// Set window title
+	// set window title
 	XStoreName(display, window, name);
 
-	// Map (show) the window
+	// show the window
 	XMapWindow(display, window);
 
 	// Create a graphics context
 	gc = XCreateGC(display, window, 0, NULL);
-
-	// Set the foreground color to red
-	XSetForeground(display, gc, 0xff0000);
 
 	return (0);
 }

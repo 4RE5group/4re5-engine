@@ -17,7 +17,9 @@ int main(void)
 			XFlush(display);
         }
         if (event.type == KeyPress) {
-			look_at.x++;
+			XClearWindow(display, window);
+			camera_pos.x++;
+			engineInit();
             transform_to_screen();
 			XFlush(display);
         }
