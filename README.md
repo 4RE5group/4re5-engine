@@ -1,6 +1,8 @@
 # 4re5-engine
 
-A simple 3d mesh viewer written in pure C (only X11 lib imported, not even standard libraries).
+![makefile action status](https://github.com/4re5group/4re5-engine/actions/workflows/make.yml/badge.svg)
+
+A simple 3d mesh viewer written in pure C
 
 In the future will be a game engine.
 
