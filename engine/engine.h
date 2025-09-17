@@ -14,6 +14,7 @@ typedef struct {
 }		Vect3;
 
 typedef struct {
+	Vect3	rotation;
 	Vect3	scale;
 	Vect3	pos;
 	int		vertices_count;
@@ -51,13 +52,14 @@ void	__ARESengine__updateDirections();
 
 // physics.c
 void	__ARESengine__translate(Scene *scene, int obj_index, Vect3 new_pos, float delta_t);
-
+void	__ARESengine__rotate(Scene *scene, int obj_index, Vect3 rotate, float delta_t);
 
 // math.c
 double	fast_sqrt(float nb);
 double	approx_sin(double x);
 double	approx_cos(double x);
 double	approx_tan(double x);
+double	d_mod(double x, double y);
 
 // graphics.c
 extern Display					*display;
@@ -68,10 +70,14 @@ void	stopWindow(void);
 
 
 // objects.c
-int		__ARESengine__loadObjectFromFile(Scene *scene, char *path, Vect3 pos, Vect3 scale);
+int		__ARESengine__loadObjectFromFile(Scene *scene, char *path, Vect3 pos, Vect3 scale, Vect3 rotation);
 
 // conversions.c
 double	parseDouble(const char *str, int *to_increment);
 int		parseInt(const char *str, int *to_increment);
+
+// matrices.c
+void	create_combined_rotation_matrix(double mat[4][4], Vect3 rotation);
+void	matrix_multiply(double out[4][4], double mat[4][4], double vec[4][4]);
 
 #endif

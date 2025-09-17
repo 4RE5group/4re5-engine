@@ -5,14 +5,17 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-int	__ARESengine__loadObjectFromFile(Scene *scene, char *path, Vect3 pos, Vect3 scale)
+int	__ARESengine__loadObjectFromFile(Scene *scene, char *path, Vect3 pos, Vect3 scale, Vect3 rotation)
 {
 	int		status = 4096;
 	char	buffer[status];
 	int		fd = open(path, O_RDONLY);
 	int		i;
 	if (fd == -1 || !scene)
+	{
+		__builtin_printf("error: could not find file: '%s'\n", path);
 		return (1);
+	}
 
 	if (scene->object_count + 1 >= MAX_VERTICES_PER_OBJECT)
 	{
@@ -33,6 +36,11 @@ int	__ARESengine__loadObjectFromFile(Scene *scene, char *path, Vect3 pos, Vect3 
 	scene->objects[scene->object_count].scale.x = scale.x;
 	scene->objects[scene->object_count].scale.y = scale.y;
 	scene->objects[scene->object_count].scale.z = scale.z;
+
+	// set rotation
+	scene->objects[scene->object_count].rotation.x = rotation.x;
+	scene->objects[scene->object_count].rotation.y = rotation.y;
+	scene->objects[scene->object_count].rotation.z = rotation.z;
 
 	while (status)
 	{
@@ -127,6 +135,7 @@ int	__ARESengine__loadObjectFromFile(Scene *scene, char *path, Vect3 pos, Vect3 
 			}
 		}
 	}
+	__builtin_printf("Successfully loaded %s (%i vertices, %i faces)\n", path, scene->objects[scene->object_count].vertices_count, scene->objects[scene->object_count].faces_count);
 	scene->object_count++;
 	return (0);
 }

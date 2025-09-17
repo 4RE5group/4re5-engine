@@ -38,26 +38,6 @@ double	projection_matrix[4][4] = {
 	{0, 0, -1.0, 0}
 };
 
-void transpose(double out[4][4], double in[4][4])
-{
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            out[j][i] = in[i][j];
-        }
-    }
-}
-
-void matrix_multiply(double out[4][4], double mat[4][4], double vec[4][4])
-{
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            out[i][j] = 0;
-            for (int k = 0; k < 4; k++) {
-                out[i][j] += mat[i][k] * vec[k][j]; // Correct indexing
-            }
-        }
-    }
-}
 
 void	__ARESengine__updateDirections()
 {
@@ -157,18 +137,27 @@ void	__ARESengine__displayUpdate(Scene *scene)
 		double vertices_ndc[NUM_VERTICES][4];
 		XPoint vertices_screen[NUM_VERTICES];
 
-		// apply view transformation to all vertices
+		double rotation_matrix[4][4];
+		create_combined_rotation_matrix(rotation_matrix, scene->objects[obj_index].rotation);
+
+		// Apply view transformation to all vertices
 		for (int i = 0; i < NUM_VERTICES; i++)
 		{
-			double vertex[4] = 
-			{
-				// apply pos + scale
-				scene->objects[obj_index].pos.x + scene->objects[obj_index].vertices[i][0] * scene->objects[obj_index].scale.x, 
-				scene->objects[obj_index].pos.y + scene->objects[obj_index].vertices[i][1] * scene->objects[obj_index].scale.y, 
-				scene->objects[obj_index].pos.z + scene->objects[obj_index].vertices[i][2] * scene->objects[obj_index].scale.z, 
-				scene->objects[obj_index].vertices[i][3]
+			double rotated_vertex[4] = {0, 0, 0, 0};
+			for (int j = 0; j < 4; j++) {
+				for (int k = 0; k < 4; k++) {
+					rotated_vertex[j] += rotation_matrix[j][k] * scene->objects[obj_index].vertices[i][k];
+				}
+			}
+
+			double vertex[4] = {
+				scene->objects[obj_index].pos.x + rotated_vertex[0] * scene->objects[obj_index].scale.x,
+				scene->objects[obj_index].pos.y + rotated_vertex[1] * scene->objects[obj_index].scale.y,
+				scene->objects[obj_index].pos.z + rotated_vertex[2] * scene->objects[obj_index].scale.z,
+				1.0
 			};
 
+			// Transform vertex to view space
 			double vertex_view[4] = {0, 0, 0, 0};
 			for (int j = 0; j < 4; j++)
 			{
@@ -177,6 +166,17 @@ void	__ARESengine__displayUpdate(Scene *scene)
 					vertex_view[j] += view_matrix[j][k] * vertex[k];
 				}
 			}
+
+			// Skip vertices behind the camera (z > 0 in view space)
+			if (vertex_view[2] > 0.0) {
+				vertices_view[i][0] = 0.0;
+				vertices_view[i][1] = 0.0;
+				vertices_view[i][2] = 0.0;
+				vertices_view[i][3] = 1.0;
+				continue;
+			}
+
+			// Store the transformed vertex
 			for (int j = 0; j < 4; j++)
 			{
 				vertices_view[i][j] = vertex_view[j];
@@ -233,54 +233,46 @@ void	__ARESengine__displayUpdate(Scene *scene)
 		{
 			XPoint face_vertices_temp[5];
 			int total_vertices_count = 0;
-			Vect3 delta;
-			double k;
-			short display_face = 1;
 
+			// Collect vertices for this face
+			Vect3 face_vertices_view[4];
 			for (int i = 0; i < 4; i++)
 			{
 				int vertex_idx = scene->objects[obj_index].faces[f][i] - 1;
+				if (vertex_idx < 0 || vertex_idx >= NUM_VERTICES) continue;
 
-				// check if vertex is on the back of the camera, then skip it if so
-				// this mean we have to calculate k and j with k positive, if not, it's behind
-				// vertex = camera_pos + k * forward + j * right
-				
-				delta.x = scene->objects[obj_index].vertices[vertex_idx][0] - camera_pos.x;
-				delta.y = scene->objects[obj_index].vertices[vertex_idx][1] - camera_pos.y;
-				delta.z = scene->objects[obj_index].vertices[vertex_idx][2] - camera_pos.z;
-
-				// calculate the determinant of the system
-				// (forward.x * right.z - forward.z * right.x) for x-y plane
-				// (forward.y * right.z - forward.z * right.y) for y-z plane
-				// (forward.x * right.y - forward.y * right.x) for x-z plane
-				// We'll use the x-y plane for simplicity (ignore z for 2D projection)
-				double determinant = (forward.x * right.y - forward.y * right.x);
-
-				if (ABS(determinant) >= 1e-10)
-				{
-					// vectors are not parallel
-					// solve for k and j using Cramer's rule
-					k = (delta.x * right.y - delta.y * right.x) / determinant;
-					// __builtin_printf("k: %f\n", k);
-					if (k < 0.0f)
-					{
-						// display_face = 0;
-						// break;
-					}
-				}
-
-
-				if (vertex_idx < 0 || vertex_idx >= NUM_VERTICES) continue; // skip invalid vertices index
 				face_vertices_temp[i] = vertices_screen[vertex_idx];
+				face_vertices_view[i].x = vertices_view[vertex_idx][0];
+				face_vertices_view[i].y = vertices_view[vertex_idx][1];
+				face_vertices_view[i].z = vertices_view[vertex_idx][2];
 				total_vertices_count++;
 			}
-			if (total_vertices_count < 3 || !display_face) continue;
-			// close the polygon
+
+			if (total_vertices_count < 3) continue;
+
+			// Calculate face normal in view space
+			Vect3 edge1, edge2;
+			edge1.x = face_vertices_view[1].x - face_vertices_view[0].x;
+			edge1.y = face_vertices_view[1].y - face_vertices_view[0].y;
+			edge1.z = face_vertices_view[1].z - face_vertices_view[0].z;
+
+			edge2.x = face_vertices_view[2].x - face_vertices_view[0].x;
+			edge2.y = face_vertices_view[2].y - face_vertices_view[0].y;
+			edge2.z = face_vertices_view[2].z - face_vertices_view[0].z;
+
+			Vect3 face_normal;
+			vectCross(&face_normal, &edge1, &edge2);
+			vectNormalize(&face_normal);
+
+			// Skip face if it's pointing away from the camera (backface)
+			// if (vectDot(&face_normal, &z_axis) > 0) continue;
+
+			// Close the polygon
 			face_vertices_temp[total_vertices_count] = face_vertices_temp[0];
-			
+
 			// Draw the outline
 			XSetForeground(display, gc, 0x000000);
-			XDrawLines(display, window, gc, face_vertices_temp, total_vertices_count+1, CoordModeOrigin);
+			XDrawLines(display, window, gc, face_vertices_temp, total_vertices_count + 1, CoordModeOrigin);
 		}
 	}
     XFlush(display);

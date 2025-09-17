@@ -3,7 +3,7 @@
 #define SQRT_PRECISION_DELTA 0.00005
 
 /*
-	Computes the square root of a number
+	Computes the square root of a number.
 */
 double	fast_sqrt(float	nb)
 {
@@ -18,7 +18,10 @@ double	fast_sqrt(float	nb)
 	return (guess[0]);
 }
 
-double	fast_mod(double x, double y)
+/*
+	Simple mod that handle double type modulos.
+*/
+double	d_mod(double x, double y)
 {
 	if (y == 0.0) // divide by 0
 		return (0.0f);
@@ -38,7 +41,7 @@ double	fast_mod(double x, double y)
 double	approx_sin(double x)
 {
 	// Reduce x to the range [-pi, pi] for better convergence
-	x = fast_mod(x, 2 * PI);
+	x = d_mod(x, 2 * PI);
 	if (x < -PI) x += 2 * PI;
 	if (x >  PI) x -= 2 * PI;
 
@@ -72,7 +75,7 @@ double	approx_sin(double x)
 double	approx_cos(double x)
 {
 	// Reduce x to the range [-pi, pi] for better convergence
-	x = fast_mod(x, 2 * PI);
+	x = d_mod(x, 2 * PI);
 	if (x < -PI) x += 2 * PI;
 	if (x >  PI) x -= 2 * PI;
 
@@ -106,7 +109,7 @@ double	approx_cos(double x)
 double	approx_tan(double x)
 {
 	// reduce x modulo pi to bring it into the range [-π/2, π/2]
-	x = fast_mod(x, PI);
+	x = d_mod(x, PI);
 	if (x > PI/2)
 		x -= PI;
 	else if (x < -PI/2)

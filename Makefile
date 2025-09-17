@@ -1,5 +1,5 @@
 OUT = test
-C_FILES = main.c engine/engine.c engine/math.c engine/vector.c engine/graphics.c engine/objects.c engine/conversions.c engine/physics.c
+C_FILES = main.c engine/engine.c engine/math.c engine/vector.c engine/graphics.c engine/objects.c engine/conversions.c engine/physics.c engine/matrices.c
 CFLAGS = -Wall -Werror -Wextra
 INCLUDES = -I./engine/
 CC = gcc

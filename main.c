@@ -8,10 +8,9 @@ int main(void)
 	Scene	scene;
 	scene.object_count = 0; // important!
 
-	__ARESengine__loadObjectFromFile(&scene, "./models/cube.obj", (Vect3){0, 0, 0}, (Vect3){1, 1, 1});
+	// __ARESengine__loadObjectFromFile(&scene, "./models/cube.obj", (Vect3){0, 0, 0}, (Vect3){1, 1, 1});
 	// __ARESengine__loadObjectFromFile(&scene, "./models/pyramid.obj", (Vect3){0, 1, 0}, (Vect3){1, 1, 1});
-	// __ARESengine__loadObjectFromFile(&scene, "./models/cube.obj", (Vect3){5, 2, 7}, (Vect3){1, 1, 1});
-
+	__ARESengine__loadObjectFromFile(&scene, "./models/cube.obj", (Vect3){0, 0, 0}, (Vect3){1, 1, 1}, (Vect3){0, 0, 0});
 
 	__ARESengine__Init("4re5-engine test", 1200, 900);
 	
@@ -50,6 +49,7 @@ int main(void)
 			}
 			else if (KeyEventCode == KEY_SPACE)
 			{
+				__ARESengine__rotate(&scene, 0, (Vect3){PI/6, PI/6, PI/6}, 20);
 				// reset pos
 				// scene.objects[2].pos.x = camera_pos.x;
 				// scene.objects[2].pos.y = camera_pos.y;
