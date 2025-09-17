@@ -1,9 +1,10 @@
 OUT = test
 C_FILES = main.c engine/engine.c engine/math.c engine/vector.c engine/graphics.c engine/objects.c engine/conversions.c engine/physics.c
-CFLAGS = -Wall -Werror -Wextra -g3
+CFLAGS = -Wall -Werror -Wextra
 INCLUDES = -I./engine/
 CC = gcc
 LDFLAGS = -lX11 -lm
+dependencies = libx11-dev
 
 all: $(OUT)
 
@@ -13,4 +14,7 @@ $(OUT): $(C_FILES)
 clean:
 	rm -rf $(OUT)
 
-.PHONY: all clean
+deps:
+	sudo apt install $(dependencies) -y
+
+.PHONY: all clean deps
