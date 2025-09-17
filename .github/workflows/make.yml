@@ -13,5 +13,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: make
+    - name: install dependencies
+      run: make deps
+    - name: make compilation
       run: make
