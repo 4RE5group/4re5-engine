@@ -1,31 +1,11 @@
 #include "engine.h"
-
-#define NUM_VERTICES	8
-#define NUM_FACES		6
-
-double   vertices[NUM_VERTICES][4] = {
-	{-1.0f, -1.0f,  -1.0f,  1},  // 0
-	{ 1.0f,  -1.0f,  -1.0f, 1}, // 1
-	{ 1.0f,   1.0f,  -1.0f, 1}, // 2
-	{-1.0f,  1.0f,  -1.0f,  1},  // 3
-	{-1.0f, -1.0f,   1.0f,  1},  // 4
-	{ 1.0f,  -1.0f,   1.0f, 1}, // 5
-	{ 1.0f,   1.0f,   1.0f, 1}, // 6
-	{-1.0f,  1.0f,   1.0f,  1}   // 7
-};
-
-int   faces[NUM_FACES][4] = {
-	{0, 1, 2, 3},  // Bottom
-	{4, 5, 6, 7},  // Top
-	{0, 1, 5, 4},  // Front
-	{2, 3, 7, 6},  // Back
-	{0, 3, 7, 4},  // Left
-	{1, 2, 6, 5}   // Right
-};
+#include <math.h>
 
 Vect3	camera_pos		= {3, 2, 5};
 Vect3	look_at			= {0, 0, 0};
 Vect3	up				= {0, 1, 0};
+Vect3	forward			= {0, 0, 0};
+Vect3	right			= {0, 0, 0};
 
 float	fov 			= PI / 3;  // 60 degrees
 float	aspect_ratio	= 1;
@@ -79,10 +59,55 @@ void matrix_multiply(double out[4][4], double mat[4][4], double vec[4][4])
     }
 }
 
-void __ARESengine__displayUpdate()
+void	updateDirectionVectors()
 {
+	// forward
+	vectSub(&forward, &look_at, &camera_pos); // forward = look_at - camera_pos
+	vectDiv(&forward, vectNorm(&forward)); // norm the vector
+
+	// right
+	vectCross(&right, &up, &forward);
+    vectDiv(&right, vectNorm(&right));
+}
+
+void	__ARESengine__rotateCamera(double pitch, double yaw)
+{
+    // Calculate the direction vector from camera to look_at
+    Vect3 direction;
+    direction.x = look_at.x - camera_pos.x;
+    direction.y = look_at.y - camera_pos.y;
+    direction.z = look_at.z - camera_pos.z;
+
+    // Calculate the distance from camera to look_at
+    double distance = fast_sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z);
+
+    // Calculate spherical coordinates (theta and phi)
+    double theta = atan2(direction.z, direction.x); // azimuthal angle
+    double phi = acos(direction.y / distance);     // polar angle
+
+    // Apply yaw and pitch
+    theta += yaw;
+    phi += pitch;
+
+    // Ensure phi stays within bounds to avoid flipping
+    if (phi < 0.01) phi = 0.01;
+    if (phi > 3.13) phi = 3.13; // ~Pi - small value to avoid flipping
+
+    // Convert back to Cartesian coordinates
+    look_at.x = camera_pos.x + distance * approx_sin(phi) * approx_cos(theta);
+    look_at.y = camera_pos.y + distance * approx_cos(phi);
+    look_at.z = camera_pos.z + distance * approx_sin(phi) * approx_sin(theta);
+}
+
+void __ARESengine__displayUpdate(Scene *scene)
+{
+	// clear window
+	XClearWindow(display, window);
+
+	// update forward, up and right vectors
+	updateDirectionVectors();
+
 	// init all axis
-	
 	// z_axis = (camera_pos - look_at) / ||camera_pos - look_at||
 	vectSub(&z_axis, &camera_pos, &look_at);
 	vectDiv(&z_axis, vectNorm(&z_axis));
@@ -111,86 +136,115 @@ void __ARESengine__displayUpdate()
 	view_matrix[2][2] = z_axis.z;
 	view_matrix[2][3] = -vectDot(&z_axis, &camera_pos);
 
+	view_matrix[3][0] = 0.0;
+	view_matrix[3][1] = 0.0;
+	view_matrix[3][2] = 0.0;
+	view_matrix[3][3] = 1.0;
 
-    double vertices_view[NUM_VERTICES][4];
-    double vertices_clip[NUM_VERTICES][4];
-    double vertices_ndc[NUM_VERTICES][3];
-    XPoint vertices_screen[NUM_VERTICES];
-
-    // apply view transformation to all vertices
-    for (int i = 0; i < NUM_VERTICES; i++)
+	for (int obj_index = 0; obj_index < scene->object_count; obj_index++)
 	{
-        double vertex[4] = {vertices[i][0], vertices[i][1], vertices[i][2], vertices[i][3]};
-        double vertex_view[4] = {0, 0, 0, 0};
-        for (int j = 0; j < 4; j++)
+		int NUM_VERTICES	= scene->objects[obj_index].vertices_count;
+		int NUM_FACES		= scene->objects[obj_index].faces_count;
+		if (NUM_VERTICES <= 0 || NUM_FACES <= 0) return; // prevent crashes
+
+		double vertices_view[NUM_VERTICES][4];
+		double vertices_clip[NUM_VERTICES][4];
+		double vertices_ndc[NUM_VERTICES][4];
+		XPoint vertices_screen[NUM_VERTICES];
+
+		// apply view transformation to all vertices
+		for (int i = 0; i < NUM_VERTICES; i++)
 		{
-            for (int k = 0; k < 4; k++)
+			double vertex[4] = 
 			{
-                vertex_view[j] += view_matrix[j][k] * vertex[k];
-            }
-        }
-        for (int j = 0; j < 4; j++)
-		{
-            vertices_view[i][j] = vertex_view[j];
-        }
-    }
-
-    // Apply projection transformation to all vertices
-    for (int i = 0; i < NUM_VERTICES; i++)
-	{
-        double vertex_clip[4] = {0, 0, 0, 0};
-        for (int j = 0; j < 4; j++)
-		{
-            for (int k = 0; k < 4; k++)
+				// apply pos + scale
+				scene->objects[obj_index].pos.x + scene->objects[obj_index].vertices[i][0] * scene->objects[obj_index].scale.x, 
+				scene->objects[obj_index].pos.y + scene->objects[obj_index].vertices[i][1] * scene->objects[obj_index].scale.y, 
+				scene->objects[obj_index].pos.z + scene->objects[obj_index].vertices[i][2] * scene->objects[obj_index].scale.z, 
+				scene->objects[obj_index].vertices[i][3]
+			};
+			double vertex_view[4] = {0, 0, 0, 0};
+			for (int j = 0; j < 4; j++)
 			{
-                vertex_clip[j] += projection_matrix[j][k] * vertices_view[i][k];
+				for (int k = 0; k < 4; k++)
+				{
+					vertex_view[j] += view_matrix[j][k] * vertex[k];
+				}
+			}
+			for (int j = 0; j < 4; j++)
+			{
+				vertices_view[i][j] = vertex_view[j];
+			}
+		}
+
+		// Apply projection transformation to all vertices
+		for (int i = 0; i < NUM_VERTICES; i++)
+		{
+			double vertex_clip[4] = {0, 0, 0, 0};
+			for (int j = 0; j < 4; j++)
+			{
+				for (int k = 0; k < 4; k++)
+				{
+					vertex_clip[j] += projection_matrix[j][k] * vertices_view[i][k];
+				}
+			}
+			for (int j = 0; j < 4; j++)
+			{
+				vertices_clip[i][j] = vertex_clip[j];
+			}
+		}
+
+		// Perspective divide and map to NDC
+		for (int i = 0; i < NUM_VERTICES; i++)
+		{
+			double w = vertices_clip[i][3];
+			// Prevent division by zero
+			if (w == 0.0) w = 1.0;
+			if (ABS(w) < 0.0001) w = 0.0001;
+
+			vertices_ndc[i][0] = vertices_clip[i][0] / w;
+			vertices_ndc[i][1] = vertices_clip[i][1] / w;
+			vertices_ndc[i][2] = vertices_clip[i][2] / w;
+			vertices_ndc[i][3] = w;
+
+			// Clip against near/far planes
+            if (vertices_ndc[i][2] < -1.0 || vertices_ndc[i][2] > 1.0) {
+                vertices_ndc[i][2] = vertices_ndc[i][2] < -1.0 ? -1.0 : 1.0;
             }
-        }
-        for (int j = 0; j < 4; j++)
-		{
-            vertices_clip[i][j] = vertex_clip[j];
-        }
-    }
-
-    // Perspective divide and map to NDC
-    for (int i = 0; i < NUM_VERTICES; i++)
-	{
-        double w = vertices_clip[i][3];
-        if (w == 0.0) {
-			w = 1.0;
 		}
-        vertices_ndc[i][0] = vertices_clip[i][0] / w;
-        vertices_ndc[i][1] = vertices_clip[i][1] / w;
-        vertices_ndc[i][2] = vertices_clip[i][2] / w;
-    }
 
-    // map NDC to screen coordinates
-    for (int i = 0; i < NUM_VERTICES; i++)
-	{
-        double x_ndc = vertices_ndc[i][0];
-        double y_ndc = vertices_ndc[i][1];
-        vertices_screen[i].x = (int)((x_ndc + 1) * 0.5 * screen_width);
-        vertices_screen[i].y = (int)((1 - y_ndc) * 0.5 * screen_height);
-    }
-
-    // draw each face
-    for (int f = 0; f < NUM_FACES; f++)
-	{
-        XPoint face_vertices_temp[5];
-		for (int i = 0; i < 4; i++)
+		// map NDC to screen coordinates
+		for (int i = 0; i < NUM_VERTICES; i++)
 		{
-			int vertex_idx = faces[f][i];
-			face_vertices_temp[i] = vertices_screen[vertex_idx];
+			double x_ndc = vertices_ndc[i][0];
+			double y_ndc = vertices_ndc[i][1];
+			vertices_screen[i].x = (int)((x_ndc + 1) * 0.5 * screen_width);
+			vertices_screen[i].y = (int)((1 - y_ndc) * 0.5 * screen_height);
 		}
-		face_vertices_temp[4] = face_vertices_temp[0]; // Close the polygon
-        // Fill the face
-        // XSetForeground(display, gc, 0xFF0000); // red
-        // XFillPolygon(display, window, gc, face_vertices_temp, 4, Complex, CoordModeOrigin);
-        // Draw the outline
-        XSetForeground(display, gc, 0x000000); // Black
-		XDrawLines(display, window, gc, face_vertices_temp, 5, CoordModeOrigin);
-    }
 
+		// draw each face
+		for (int f = 0; f < NUM_FACES; f++)
+		{
+			XPoint face_vertices_temp[5];
+			int total_vertices_count = 0;
+
+			for (int i = 0; i < 4; i++)
+			{
+				int vertex_idx = scene->objects[obj_index].faces[f][i] - 1;
+				if (vertex_idx < 0 || vertex_idx >= NUM_VERTICES) continue; // skip invalid vertices index
+				face_vertices_temp[i] = vertices_screen[vertex_idx];
+				total_vertices_count++;
+			}
+			if (total_vertices_count < 3) continue;
+
+			// close the polygon
+			face_vertices_temp[total_vertices_count] = face_vertices_temp[0];
+			
+			// Draw the outline
+			XSetForeground(display, gc, 0x000000);
+			XDrawLines(display, window, gc, face_vertices_temp, total_vertices_count+1, CoordModeOrigin);
+		}
+	}
     XFlush(display);
 }
 
@@ -202,8 +256,10 @@ int	__ARESengine__Init(char *window_name, int window_width, int window_height)
 
 	projection_matrix[0][0] = f / aspect_ratio;
 	projection_matrix[1][1] = f;
-	projection_matrix[2][2] = (far + near) / (near - far);
-	projection_matrix[2][3] = (2 * far * near) / (near - far);
+	projection_matrix[2][2] = (far + near)/(near - far);  // Should be (far + near)/(near - far)
+	projection_matrix[2][3] = (2*far*near)/(near - far);  // Correct
+	projection_matrix[3][2] = -1.0;                       // Should be -1.0
+	projection_matrix[3][3] = 0.0;                        // Should be 0.0
 
 	screen_width = window_width;
 	screen_height = window_height;

@@ -56,3 +56,26 @@ double	vectDot(Vect3 *vect1, Vect3 *vect2)
 {
 	return (vect1->x * vect2->x + vect1->y * vect2->y + vect1->z * vect2->z);
 }
+
+/*
+	Rotate a vector on itself by an angle on a certain axis.
+*/
+void vectRotate(Vect3 *out, Vect3 *v, double angle, char axis)
+{
+    double cos_theta = approx_cos(angle);
+    double sin_theta = approx_sin(angle);
+
+    if (axis == 'x') { // Pitch
+        out->x = v->x;
+        out->y = v->y * cos_theta - v->z * sin_theta;
+        out->z = v->y * sin_theta + v->z * cos_theta;
+    } else if (axis == 'y') { // Yaw
+        out->x = v->x * cos_theta + v->z * sin_theta;
+        out->y = v->y;
+        out->z = -v->x * sin_theta + v->z * cos_theta;
+    } else if (axis == 'z') { // Roll
+        out->x = v->x * cos_theta - v->y * sin_theta;
+        out->y = v->x * sin_theta + v->y * cos_theta;
+        out->z = v->z;
+    }
+}

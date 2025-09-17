@@ -1,7 +1,6 @@
 #include "engine.h"
 
 #define SQRT_PRECISION_DELTA 0.00005
-#define ABS(nb) ((nb < 0)?-nb:nb)
 
 /*
 	Computes the square root of a number
@@ -60,6 +59,40 @@ double	approx_sin(double x)
 	double term = x;
 
 	for (int i = 1; i < 7; i++) {
+		term *= x_squared;
+		result += coefficients[i] * term;
+	}
+
+	return result;
+}
+
+/*
+	Approximation of cos using Taylor series and Horner's method
+*/
+double	approx_cos(double x)
+{
+	// Reduce x to the range [-pi, pi] for better convergence
+	x = fast_mod(x, 2 * PI);
+	if (x < -PI) x += 2 * PI;
+	if (x >  PI) x -= 2 * PI;
+
+	// Taylor series coefficients for cos(x) up to x^12
+	// Coefficients: 1 - x^2/2! + x^4/4! - x^6/6! + x^8/8! - x^10/10! + x^12/12!
+	const double coefficients[] = {
+		-0.5,				// 2!
+		 1.0 / 24,			// 4!
+		-1.0 / 720,			// 6!
+		 1.0 / 40320,		// 8!
+		-1.0 / 3628800,		// 10!
+		 1.0 / 479001600	// 12!
+	};
+
+	double x_squared = x * x;
+	double result = 1;
+	double term = 1;
+
+	for (int i = 0; i < 6; i++)
+	{
 		term *= x_squared;
 		result += coefficients[i] * term;
 	}

@@ -1,0 +1,20 @@
+# 4re5 group, all rights reserved. Default cube for 4re5 the engine
+o default_cube
+
+# Vertices
+v -1.0 -1.0 -1.0
+v  1.0 -1.0 -1.0
+v  1.0  1.0 -1.0
+v -1.0  1.0 -1.0
+v -1.0 -1.0  1.0
+v  1.0 -1.0  1.0
+v  1.0  1.0  1.0
+v -1.0  1.0  1.0
+
+# Faces
+f 1 2 3 4    # Front face
+f 5 6 7 8    # Back face
+f 1 2 6 5    # Bottom face
+f 3 4 8 7    # Top face
+f 1 4 8 5    # Left face
+f 2 3 7 6    # Right face
