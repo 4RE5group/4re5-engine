@@ -79,3 +79,15 @@ void vectRotate(Vect3 *out, Vect3 *v, double angle, char axis)
         out->z = v->z;
     }
 }
+
+/*
+	Normalize a vector.
+*/
+void	vectNormalize(Vect3 *v) {
+    double length = fast_sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
+    if (length > 0.0) {
+        v->x /= length;
+        v->y /= length;
+        v->z /= length;
+    }
+}

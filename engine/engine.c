@@ -7,7 +7,7 @@ Vect3	up				= {0, 1, 0};
 Vect3	forward			= {0, 0, 0};
 Vect3	right			= {0, 0, 0};
 
-float	fov 			= PI / 3;  // 60 degrees
+float	fov 			= PI / 2;
 float	aspect_ratio	= 1;
 float	near 			= 0.1;
 float	far				= 100;
@@ -59,15 +59,19 @@ void matrix_multiply(double out[4][4], double mat[4][4], double vec[4][4])
     }
 }
 
-void	updateDirectionVectors()
+void	__ARESengine__updateDirections()
 {
 	// forward
 	vectSub(&forward, &look_at, &camera_pos); // forward = look_at - camera_pos
-	vectDiv(&forward, vectNorm(&forward)); // norm the vector
+	vectNormalize(&forward); // norm the vector
+
+	up.x = 0;
+	up.y = 1;
+	up.z = 0;
 
 	// right
 	vectCross(&right, &up, &forward);
-    vectDiv(&right, vectNorm(&right));
+	vectNormalize(&right);
 }
 
 void	__ARESengine__rotateCamera(double pitch, double yaw)
@@ -79,7 +83,8 @@ void	__ARESengine__rotateCamera(double pitch, double yaw)
     direction.z = look_at.z - camera_pos.z;
 
     // Calculate the distance from camera to look_at
-    double distance = fast_sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z);
+    // double distance = fast_sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z);
+	double distance = 5.0;
 
     // Calculate spherical coordinates (theta and phi)
     double theta = atan2(direction.z, direction.x); // azimuthal angle
@@ -99,22 +104,22 @@ void	__ARESengine__rotateCamera(double pitch, double yaw)
     look_at.z = camera_pos.z + distance * approx_sin(phi) * approx_sin(theta);
 }
 
-void __ARESengine__displayUpdate(Scene *scene)
+void	__ARESengine__displayUpdate(Scene *scene)
 {
 	// clear window
 	XClearWindow(display, window);
 
 	// update forward, up and right vectors
-	updateDirectionVectors();
+	__ARESengine__updateDirections();
 
 	// init all axis
 	// z_axis = (camera_pos - look_at) / ||camera_pos - look_at||
 	vectSub(&z_axis, &camera_pos, &look_at);
-	vectDiv(&z_axis, vectNorm(&z_axis));
+	vectNormalize(&z_axis);
 
 	// x_axis = cross(up, z_axis) / ||cross(up, z_axis)||
 	vectCross(&x_axis, &up, &z_axis);
-	vectDiv(&x_axis, vectNorm(&x_axis));
+	vectNormalize(&x_axis);
 
 	// y_axis = cross(z_axis, x_axis)
 	vectCross(&y_axis, &z_axis, &x_axis);
@@ -163,6 +168,7 @@ void __ARESengine__displayUpdate(Scene *scene)
 				scene->objects[obj_index].pos.z + scene->objects[obj_index].vertices[i][2] * scene->objects[obj_index].scale.z, 
 				scene->objects[obj_index].vertices[i][3]
 			};
+
 			double vertex_view[4] = {0, 0, 0, 0};
 			for (int j = 0; j < 4; j++)
 			{
@@ -227,16 +233,48 @@ void __ARESengine__displayUpdate(Scene *scene)
 		{
 			XPoint face_vertices_temp[5];
 			int total_vertices_count = 0;
+			Vect3 delta;
+			double k;
+			short display_face = 1;
 
 			for (int i = 0; i < 4; i++)
 			{
 				int vertex_idx = scene->objects[obj_index].faces[f][i] - 1;
+
+				// check if vertex is on the back of the camera, then skip it if so
+				// this mean we have to calculate k and j with k positive, if not, it's behind
+				// vertex = camera_pos + k * forward + j * right
+				
+				delta.x = scene->objects[obj_index].vertices[vertex_idx][0] - camera_pos.x;
+				delta.y = scene->objects[obj_index].vertices[vertex_idx][1] - camera_pos.y;
+				delta.z = scene->objects[obj_index].vertices[vertex_idx][2] - camera_pos.z;
+
+				// calculate the determinant of the system
+				// (forward.x * right.z - forward.z * right.x) for x-y plane
+				// (forward.y * right.z - forward.z * right.y) for y-z plane
+				// (forward.x * right.y - forward.y * right.x) for x-z plane
+				// We'll use the x-y plane for simplicity (ignore z for 2D projection)
+				double determinant = (forward.x * right.y - forward.y * right.x);
+
+				if (ABS(determinant) >= 1e-10)
+				{
+					// vectors are not parallel
+					// solve for k and j using Cramer's rule
+					k = (delta.x * right.y - delta.y * right.x) / determinant;
+					// __builtin_printf("k: %f\n", k);
+					if (k < 0.0f)
+					{
+						// display_face = 0;
+						// break;
+					}
+				}
+
+
 				if (vertex_idx < 0 || vertex_idx >= NUM_VERTICES) continue; // skip invalid vertices index
 				face_vertices_temp[i] = vertices_screen[vertex_idx];
 				total_vertices_count++;
 			}
-			if (total_vertices_count < 3) continue;
-
+			if (total_vertices_count < 3 || !display_face) continue;
 			// close the polygon
 			face_vertices_temp[total_vertices_count] = face_vertices_temp[0];
 			
@@ -261,8 +299,26 @@ int	__ARESengine__Init(char *window_name, int window_width, int window_height)
 	projection_matrix[3][2] = -1.0;                       // Should be -1.0
 	projection_matrix[3][3] = 0.0;                        // Should be 0.0
 
+	// set window properties
 	screen_width = window_width;
 	screen_height = window_height;
+
+	// set camera default values
+	look_at.x = camera_pos.x;
+	look_at.y = camera_pos.y;
+	look_at.z = camera_pos.z - 2;
+
+	forward.x = 0;
+	forward.y = 0;
+	forward.z = 1;
+
+	up.x = 0;
+	up.y = 1;
+	up.z = 0;
+
+	// initialize right vector
+	vectCross(&right, &up, &forward);
+	vectNormalize(&right);
 	
 	return (setupWindow(screen_width, screen_height, window_name));
 }

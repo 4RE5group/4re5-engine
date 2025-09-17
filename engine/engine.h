@@ -35,6 +35,7 @@ float	vectNorm(Vect3 *vect1);
 void	vectCross(Vect3 *out, Vect3 *vect1, Vect3 *vect2);
 double	vectDot(Vect3 *vect1, Vect3 *vect2);
 void	vectRotate(Vect3 *out, Vect3 *v, double angle, char axis);
+void	vectNormalize(Vect3 *v);
 
 // engine.c
 extern Vect3	camera_pos;
@@ -46,6 +47,7 @@ extern Vect3	right;
 int		__ARESengine__Init(char *window_name, int window_width, int window_height);
 void	__ARESengine__displayUpdate(Scene *scene);
 void	__ARESengine__rotateCamera(double pitch, double yaw);
+void	__ARESengine__updateDirections();
 
 // physics.c
 void	__ARESengine__translate(Scene *scene, int obj_index, Vect3 new_pos, float delta_t);
