@@ -88,6 +88,33 @@ typedef struct {
     double u, v, w;
 } Barycentric;
 
+Barycentric calculateBarycentric(XPoint p, XPoint a, XPoint b, XPoint c) {
+    Barycentric coord;
+
+    // Calculate vectors
+    double v0x = c.x - a.x;
+    double v0y = c.y - a.y;
+    double v1x = b.x - a.x;
+    double v1y = b.y - a.y;
+    double v2x = p.x - a.x;
+    double v2y = p.y - a.y;
+
+    // Calculate dot products
+    double dot00 = v0x * v0x + v0y * v0y;
+    double dot01 = v0x * v1x + v0y * v1y;
+    double dot02 = v0x * v2x + v0y * v2y;
+    double dot11 = v1x * v1x + v1y * v1y;
+    double dot12 = v1x * v2x + v1y * v2y;
+
+    // Calculate barycentric coordinates
+    double invDenom = 1.0 / (dot00 * dot11 - dot01 * dot01);
+    coord.v = (dot11 * dot02 - dot01 * dot12) * invDenom;
+    coord.w = (dot00 * dot12 - dot01 * dot02) * invDenom;
+    coord.u = 1.0 - coord.v - coord.w;
+
+    return coord;
+}
+
 UVCoord interpolateUV(Barycentric coord, UVCoord uv0, UVCoord uv1, UVCoord uv2) {
     UVCoord uv;
     uv.u = coord.u * uv0.u + coord.v * uv1.u + coord.w * uv2.u;
@@ -95,43 +122,73 @@ UVCoord interpolateUV(Barycentric coord, UVCoord uv0, UVCoord uv1, UVCoord uv2) 
     return uv;
 }
 
-Barycentric calculateBarycentric(XPoint p, XPoint a, XPoint b, XPoint c) {
-    Barycentric coord;
-    double areaABC = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-    double areaPBC = (b.x - p.x) * (c.y - p.y) - (b.y - p.y) * (c.x - p.x);
-    double areaPCA = (c.x - p.x) * (a.y - p.y) - (c.y - p.y) * (a.x - p.x);
-    double areaPAB = (a.x - p.x) * (b.y - p.y) - (a.y - p.y) * (b.x - p.x);
-
-    coord.u = areaPBC / areaABC;
-    coord.v = areaPCA / areaABC;
-    coord.w = areaPAB / areaABC;
-
-    return coord;
-}
-
-void	drawTexturedFace(XPoint vertices[3], UVCoord uvs[3], Texture *texture)
-{
+void drawTexturedFace(XPoint vertices[4], UVCoord uvs[4], Texture *texture) {
     // Find the bounding box of the face
-    int minX = d_min(d_min(vertices[0].x, vertices[1].x), vertices[2].x);
-    int maxX = d_max(d_max(vertices[0].x, vertices[1].x), vertices[2].x);
-    int minY = d_min(d_min(vertices[0].y, vertices[1].y), vertices[2].y);
-    int maxY = d_max(d_max(vertices[0].y, vertices[1].y), vertices[2].y);
+    int minX = d_min(d_min(d_min(vertices[0].x, vertices[1].x), vertices[2].x), vertices[3].x);
+    int maxX = d_max(d_max(d_max(vertices[0].x, vertices[1].x), vertices[2].x), vertices[3].x);
+    int minY = d_min(d_min(d_min(vertices[0].y, vertices[1].y), vertices[2].y), vertices[3].y);
+    int maxY = d_max(d_max(d_max(vertices[0].y, vertices[1].y), vertices[2].y), vertices[3].y);
+
+    // Clamp the bounding box to the screen
+    minX = d_max(minX, 0);
+    maxX = d_min(maxX, screen_width - 1);
+    minY = d_max(minY, 0);
+    maxY = d_min(maxY, screen_height - 1);
 
     // Iterate over each pixel in the bounding box
     for (int y = minY; y <= maxY; y++) {
         for (int x = minX; x <= maxX; x++) {
             XPoint p = {x, y};
-            Barycentric coord = calculateBarycentric(p, vertices[0], vertices[1], vertices[2]);
 
-            // Check if the point is inside the face
-            if (coord.u >= 0 && coord.v >= 0 && coord.w >= 0)
-			{
-                UVCoord uv = interpolateUV(coord, uvs[0], uvs[1], uvs[2]);
+            // Check if the point is inside the quad by splitting it into two triangles
+            Barycentric coord1, coord2;
+            int inTriangle1 = 0, inTriangle2 = 0;
+
+            // Check triangle 0-1-2
+            coord1 = calculateBarycentric(p, vertices[0], vertices[1], vertices[2]);
+            if (coord1.u >= 0 && coord1.v >= 0 && coord1.w >= 0) {
+                inTriangle1 = 1;
+            }
+
+            // Check triangle 0-2-3
+            coord2 = calculateBarycentric(p, vertices[0], vertices[2], vertices[3]);
+            if (coord2.u >= 0 && coord2.v >= 0 && coord2.w >= 0) {
+                inTriangle2 = 1;
+            }
+
+            // If the point is in either triangle, it's inside the quad
+            if (inTriangle1 || inTriangle2) {
+                UVCoord uv;
+
+                // Interpolate UV coordinates based on which triangle contains the point
+                if (inTriangle1) {
+                    uv = interpolateUV(coord1, uvs[0], uvs[1], uvs[2]);
+                } else {
+                    uv = interpolateUV(coord2, uvs[0], uvs[2], uvs[3]);
+                }
 
                 // Sample the texture
                 int texX = (int)(uv.u * (texture->width - 1));
                 int texY = (int)(uv.v * (texture->height - 1));
-                unsigned int pixel = texture->pixels[texY * texture->width + texX];
+
+                // Clamp texture coordinates to avoid out-of-bounds access
+                texX = d_max(0, d_min(texX, texture->width - 1));
+                texY = d_max(0, d_min(texY, texture->height - 1));
+
+                // Get the pixel color
+                unsigned int pixel = 0;
+                if (texture->bytes_per_pixel == 3) {
+                    size_t texIndex = (texY * texture->width + texX) * 3;
+                    pixel = (texture->pixels[texIndex + 0] << 16) |  // R
+                            (texture->pixels[texIndex + 1] << 8)  |  // G
+                            (texture->pixels[texIndex + 2]);            // B
+                } else if (texture->bytes_per_pixel == 4) {
+                    size_t texIndex = (texY * texture->width + texX) * 4;
+                    pixel = (texture->pixels[texIndex + 0] << 16) |  // R
+                            (texture->pixels[texIndex + 1] << 8)  |  // G
+                            (texture->pixels[texIndex + 2])      |     // B
+                            (texture->pixels[texIndex + 3] << 24); // A
+                }
 
                 // Set the pixel color
                 XSetForeground(display, gc, pixel);
@@ -140,6 +197,9 @@ void	drawTexturedFace(XPoint vertices[3], UVCoord uvs[3], Texture *texture)
         }
     }
 }
+
+// tmp, load texture 
+Texture texture1;
 
 void	__ARESengine__displayUpdate(Scene *scene)
 {
@@ -293,7 +353,7 @@ void	__ARESengine__displayUpdate(Scene *scene)
 		{
 			XPoint face_vertices_temp[5];
 			int total_vertices_count = 0;
-			UVCoord face_uvs[4];
+			UVCoord face_uvs[4] = {{0.0, 0.0}, {0.0, 1.0}, {1.0, 1.0}, {1.0, 0.0}};
 
 			// Collect vertices for this face
 			Vect3 face_vertices_view[4];
@@ -375,6 +435,26 @@ int	__ARESengine__Init(char *window_name, int window_width, int window_height)
 	// initialize right vector
 	vectCross(&right, &up, &forward);
 	vectNormalize(&right);
+
+	__ARESengine__loadTexture(&texture1, "./textures/texture1.bmp");
 	
 	return (setupWindow(screen_width, screen_height, window_name));
+}
+
+/*
+	Cleanup a scene.
+*/
+void	__ARESengine__cleanup(Scene *scene)
+{
+	if (!scene)
+		return;
+
+	for(int obj_id=0; obj_id < scene->object_count; obj_id++)
+	{
+		if (scene->objects[obj_id].faces)		free(scene->objects[obj_id].faces);
+		if (scene->objects[obj_id].vertices)	free(scene->objects[obj_id].vertices);
+		if (scene->objects[obj_id].uv_indices)	free(scene->objects[obj_id].uv_indices);
+		if (scene->objects[obj_id].uvs)			free(scene->objects[obj_id].uvs);
+	}
+	__builtin_printf("Scene cleaned up!\n");
 }

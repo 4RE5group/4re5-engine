@@ -2,22 +2,16 @@
 #include "config.h"
 #include <unistd.h>
 
-int main(void)
+int		main(void)
 {
-	Texture t1;
-	__ARESengine__loadTexture(&t1, "./textures/texture1.bmp");
-	__builtin_printf("%u\n", t1.pixels[0]);
-	free(t1.pixels);
-
-
 	Scene	scene;
 	scene.object_count = 0; // important!
 
 	__ARESengine__loadObjectFromFile(&scene, "./models/cube.obj", (Vect3){0, 0, 0}, (Vect3){1, 1, 1}, (Vect3){0, 0, 0});
-	__ARESengine__loadObjectFromFile(&scene, "./models/pyramid.obj", (Vect3){0, 1, 0}, (Vect3){1, 1, 1}, (Vect3){0, 0, 0});
-	__ARESengine__loadObjectFromFile(&scene, "./models/cube.obj", (Vect3){3, 3, 3}, (Vect3){1, 1, 1}, (Vect3){0, 0, 0});
+	// __ARESengine__loadObjectFromFile(&scene, "./models/pyramid.obj", (Vect3){0, 1, 0}, (Vect3){1, 1, 1}, (Vect3){0, 0, 0});
+	// __ARESengine__loadObjectFromFile(&scene, "./models/cube.obj", (Vect3){3, 3, 3}, (Vect3){1, 1, 1}, (Vect3){0, 0, 0});
 
-	__ARESengine__Init("4re5-engine test", 1200, 900);
+	__ARESengine__Init("4re5-engine test", 800, 600);
 	
 	XEvent  event;
 	while (1)
@@ -51,22 +45,6 @@ int main(void)
 			else if (KeyEventCode == KEY_SPACE)
 			{
 				__ARESengine__rotate(&scene, 0, (Vect3){PI/6, PI/6, PI/6}, 20);
-				// reset pos
-				// scene.objects[2].pos.x = camera_pos.x;
-				// scene.objects[2].pos.y = camera_pos.y;
-				// scene.objects[2].pos.z = camera_pos.z;
-				// __ARESengine__displayUpdate(&scene);
-
-				// Vect3 newpos;
-				// vectAdd(&newpos, &camera_pos, &look_at);
-				// newpos.x *= 5;
-				// newpos.y *= 5;
-				// newpos.z *= 5;
-				// __ARESengine__translate(&scene, 2, newpos, 20);
-				// __builtin_printf("newpos: (%f, %f, %f)\n", newpos.x, newpos.y, newpos.z);
-				// __builtin_printf("	forward: (%f, %f, %f)\n", forward.x, forward.y, forward.z);
-				// __builtin_printf("	camera_pos: (%f, %f, %f)\n", camera_pos.x, camera_pos.y, camera_pos.z);
-				// vectAdd(&camera_pos, &camera_pos, &(Vect3){0, 1, 0});
 			}
 
 			// cam
@@ -85,5 +63,8 @@ int main(void)
 		usleep(FPS * 100);
     }
 
+	free(texture1.pixels);
+
+	__ARESengine__cleanup(&scene);
 	stopWindow();
 }

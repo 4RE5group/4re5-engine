@@ -9,7 +9,7 @@ C_FILES = main.c \
 	engine/physics.c \
 	engine/matrices.c \
 	engine/texture.c
-CFLAGS = -Wall -Werror -Wextra
+CFLAGS = -Wall -Werror -Wextra -g3
 INCLUDES = -I./engine/
 CC = gcc
 LDFLAGS = -lX11 -lm

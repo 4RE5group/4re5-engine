@@ -31,14 +31,16 @@ typedef struct {
 }		Vertex;
 
 typedef struct {
-	Vect3	rotation;
-	Vect3	scale;
-	Vect3	pos;
-	int		vertices_count;
-	int		faces_count;
-	UVCoord	uv[MAX_UVCOORDS_PER_OBJECT];
-	Vertex	vertices[MAX_VERTICES_PER_OBJECT];
-	int		faces[MAX_FACES_PER_OBJECT][4];
+	Vect3		rotation;
+	Vect3		scale;
+	Vect3		pos;
+	size_t		vertices_count;
+	size_t		faces_count;
+	size_t		uvs_count;
+	UVCoord		*uvs;
+	int			(*uv_indices)[4];
+	Vertex		*vertices;
+	int			(*faces)[4];
 }		Object;
 
 typedef struct {
@@ -69,10 +71,12 @@ extern Vect3	look_at;
 extern Vect3	up;
 extern Vect3	forward;
 extern Vect3	right;
+extern Texture	texture1;
 int		__ARESengine__Init(char *window_name, int window_width, int window_height);
 void	__ARESengine__displayUpdate(Scene *scene);
 void	__ARESengine__rotateCamera(double pitch, double yaw);
 void	__ARESengine__updateDirections();
+void	__ARESengine__cleanup(Scene *scene);
 
 
 // physics.c
