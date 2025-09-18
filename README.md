@@ -16,6 +16,7 @@ Based on projection matrixes to display 3d points on a 2d screen.
 - [ ] Secure all type conversion in [conversion.c](./engine/conversions.c)
 - [ ] Optimize all operations to maximum in `__ARESengine__displayUpdate`
 - [ ] Transform every polygons into triangles when parsing obj files
-- [ ] Fix visual bugs
+- [x] Fix visual bugs
 - [ ] Handle textures
-- [ ] Handle basic physics
+- [x] Handle basic physics
+- [ ] Allocate memory dynamically

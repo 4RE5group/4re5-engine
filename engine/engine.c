@@ -84,6 +84,63 @@ void	__ARESengine__rotateCamera(double pitch, double yaw)
     look_at.z = camera_pos.z + distance * approx_sin(phi) * approx_sin(theta);
 }
 
+typedef struct {
+    double u, v, w;
+} Barycentric;
+
+UVCoord interpolateUV(Barycentric coord, UVCoord uv0, UVCoord uv1, UVCoord uv2) {
+    UVCoord uv;
+    uv.u = coord.u * uv0.u + coord.v * uv1.u + coord.w * uv2.u;
+    uv.v = coord.u * uv0.v + coord.v * uv1.v + coord.w * uv2.v;
+    return uv;
+}
+
+Barycentric calculateBarycentric(XPoint p, XPoint a, XPoint b, XPoint c) {
+    Barycentric coord;
+    double areaABC = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    double areaPBC = (b.x - p.x) * (c.y - p.y) - (b.y - p.y) * (c.x - p.x);
+    double areaPCA = (c.x - p.x) * (a.y - p.y) - (c.y - p.y) * (a.x - p.x);
+    double areaPAB = (a.x - p.x) * (b.y - p.y) - (a.y - p.y) * (b.x - p.x);
+
+    coord.u = areaPBC / areaABC;
+    coord.v = areaPCA / areaABC;
+    coord.w = areaPAB / areaABC;
+
+    return coord;
+}
+
+void	drawTexturedFace(XPoint vertices[3], UVCoord uvs[3], Texture *texture)
+{
+    // Find the bounding box of the face
+    int minX = d_min(d_min(vertices[0].x, vertices[1].x), vertices[2].x);
+    int maxX = d_max(d_max(vertices[0].x, vertices[1].x), vertices[2].x);
+    int minY = d_min(d_min(vertices[0].y, vertices[1].y), vertices[2].y);
+    int maxY = d_max(d_max(vertices[0].y, vertices[1].y), vertices[2].y);
+
+    // Iterate over each pixel in the bounding box
+    for (int y = minY; y <= maxY; y++) {
+        for (int x = minX; x <= maxX; x++) {
+            XPoint p = {x, y};
+            Barycentric coord = calculateBarycentric(p, vertices[0], vertices[1], vertices[2]);
+
+            // Check if the point is inside the face
+            if (coord.u >= 0 && coord.v >= 0 && coord.w >= 0)
+			{
+                UVCoord uv = interpolateUV(coord, uvs[0], uvs[1], uvs[2]);
+
+                // Sample the texture
+                int texX = (int)(uv.u * (texture->width - 1));
+                int texY = (int)(uv.v * (texture->height - 1));
+                unsigned int pixel = texture->pixels[texY * texture->width + texX];
+
+                // Set the pixel color
+                XSetForeground(display, gc, pixel);
+                XDrawPoint(display, window, gc, x, y);
+            }
+        }
+    }
+}
+
 void	__ARESengine__displayUpdate(Scene *scene)
 {
 	// clear window
@@ -146,7 +203,7 @@ void	__ARESengine__displayUpdate(Scene *scene)
 			double rotated_vertex[4] = {0, 0, 0, 0};
 			for (int j = 0; j < 4; j++) {
 				for (int k = 0; k < 4; k++) {
-					rotated_vertex[j] += rotation_matrix[j][k] * scene->objects[obj_index].vertices[i][k];
+					rotated_vertex[j] += rotation_matrix[j][k] * ((double*)&scene->objects[obj_index].vertices[i])[k];
 				}
 			}
 
@@ -229,10 +286,14 @@ void	__ARESengine__displayUpdate(Scene *scene)
 		}
 
 		// draw each face
+		// tmp, load texture 
+		Texture texture1;
+		__ARESengine__loadTexture(&texture1, "./textures/texture1.bmp");
 		for (int f = 0; f < NUM_FACES; f++)
 		{
 			XPoint face_vertices_temp[5];
 			int total_vertices_count = 0;
+			UVCoord face_uvs[4];
 
 			// Collect vertices for this face
 			Vect3 face_vertices_view[4];
@@ -240,6 +301,8 @@ void	__ARESengine__displayUpdate(Scene *scene)
 			{
 				int vertex_idx = scene->objects[obj_index].faces[f][i] - 1;
 				if (vertex_idx < 0 || vertex_idx >= NUM_VERTICES) continue;
+
+				face_uvs[i] = scene->objects[obj_index].vertices[vertex_idx].uv;
 
 				face_vertices_temp[i] = vertices_screen[vertex_idx];
 				face_vertices_view[i].x = vertices_view[vertex_idx][0];
@@ -270,6 +333,7 @@ void	__ARESengine__displayUpdate(Scene *scene)
 			// Close the polygon
 			face_vertices_temp[total_vertices_count] = face_vertices_temp[0];
 
+			drawTexturedFace(face_vertices_temp, face_uvs, &texture1);
 			// Draw the outline
 			XSetForeground(display, gc, 0x000000);
 			XDrawLines(display, window, gc, face_vertices_temp, total_vertices_count + 1, CoordModeOrigin);

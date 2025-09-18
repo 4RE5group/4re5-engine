@@ -123,3 +123,23 @@ double	approx_tan(double x)
 
 	return x + (x3 / 3.0) + (2.0 * x5 / 15.0) + (17.0 * x7 / 315.0);
 }
+
+/*
+	Returns the minimum between two double.
+*/
+double	d_min(double a, double b)
+{
+	if (a < b)
+		return (a);
+	return (b);
+}
+
+/*
+	Returns the maximum between two double.
+*/
+double	d_max(double a, double b)
+{
+	if (a > b)
+		return (a);
+	return (b);
+}

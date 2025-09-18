@@ -4,13 +4,18 @@
 
 int main(void)
 {
-	// test obj input
+	Texture t1;
+	__ARESengine__loadTexture(&t1, "./textures/texture1.bmp");
+	__builtin_printf("%u\n", t1.pixels[0]);
+	free(t1.pixels);
+
+
 	Scene	scene;
 	scene.object_count = 0; // important!
 
-	// __ARESengine__loadObjectFromFile(&scene, "./models/cube.obj", (Vect3){0, 0, 0}, (Vect3){1, 1, 1});
-	// __ARESengine__loadObjectFromFile(&scene, "./models/pyramid.obj", (Vect3){0, 1, 0}, (Vect3){1, 1, 1});
 	__ARESengine__loadObjectFromFile(&scene, "./models/cube.obj", (Vect3){0, 0, 0}, (Vect3){1, 1, 1}, (Vect3){0, 0, 0});
+	__ARESengine__loadObjectFromFile(&scene, "./models/pyramid.obj", (Vect3){0, 1, 0}, (Vect3){1, 1, 1}, (Vect3){0, 0, 0});
+	__ARESengine__loadObjectFromFile(&scene, "./models/cube.obj", (Vect3){3, 3, 3}, (Vect3){1, 1, 1}, (Vect3){0, 0, 0});
 
 	__ARESengine__Init("4re5-engine test", 1200, 900);
 	
@@ -21,10 +26,6 @@ int main(void)
         if (event.type == KeyPress) {
 			unsigned int KeyEventCode = event.xkey.keycode;
 
-			__ARESengine__updateDirections();
-			__builtin_printf("forward:  x=%f, y=%f, z=%f\n", forward.x, forward.y, forward.z);
-			__builtin_printf("	right:  x=%f, y=%f, z=%f\n", right.x, right.y, right.z);
-			__builtin_printf("	camera: x=%f, y=%f, z=%f\n", camera_pos.x, camera_pos.y, camera_pos.z);
 			// __builtin_printf("pressed key: %u\n", KeyEventCode);
 			// movement
 			if (KeyEventCode == KEY_UP)

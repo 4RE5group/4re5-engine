@@ -1,9 +1,5 @@
 #include "engine.h"
 #include "config.h"
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 
 int	__ARESengine__loadObjectFromFile(Scene *scene, char *path, Vect3 pos, Vect3 scale, Vect3 rotation)
 {
@@ -14,12 +10,14 @@ int	__ARESengine__loadObjectFromFile(Scene *scene, char *path, Vect3 pos, Vect3 
 	if (fd == -1 || !scene)
 	{
 		__builtin_printf("error: could not find file: '%s'\n", path);
+		if (fd != -1) close(fd);
 		return (1);
 	}
 
 	if (scene->object_count + 1 >= MAX_VERTICES_PER_OBJECT)
 	{
 		__builtin_printf("error: scene is full\n");
+		close(fd);
 		return (1);
 	}
 	// add new object
@@ -70,6 +68,9 @@ int	__ARESengine__loadObjectFromFile(Scene *scene, char *path, Vect3 pos, Vect3 
 				j = 1; // start at offset 2 (skip 'f') then skip spaces
 				while (line[j] == ' ')
 					j++;
+
+				// TODO: need to handle uv input
+				
 				double x = parseDouble(&line[j], &j); // increment j to end of double
 				while (line[j] == ' ')
 					j++;
@@ -95,6 +96,7 @@ int	__ARESengine__loadObjectFromFile(Scene *scene, char *path, Vect3 pos, Vect3 
 				if (line[j] != '\0' && line[j] != '#') // check line end / comment
 				{
 					__builtin_printf("error: invalid face line at %s:%ld\n	line: '%s'\n", path, line_num, line);
+					close(fd);
 					return (1);
 				}
 				// fill the faces
@@ -124,18 +126,20 @@ int	__ARESengine__loadObjectFromFile(Scene *scene, char *path, Vect3 pos, Vect3 
 				if (line[j] != '\0' && line[j] != '#') // check line end / comment
 				{
 					__builtin_printf("error: invalid vertice line at %s:%ld\n	line: '%s'\n", path, line_num, line);
+					close(fd);
 					return (1);
 				}
 				// fill the vertices
-				scene->objects[scene->object_count].vertices[scene->objects[scene->object_count].vertices_count][0] = x;
-				scene->objects[scene->object_count].vertices[scene->objects[scene->object_count].vertices_count][1] = y;
-				scene->objects[scene->object_count].vertices[scene->objects[scene->object_count].vertices_count][2] = z;
-				scene->objects[scene->object_count].vertices[scene->objects[scene->object_count].vertices_count][3] = 1;
+				scene->objects[scene->object_count].vertices[scene->objects[scene->object_count].vertices_count].x = x;
+				scene->objects[scene->object_count].vertices[scene->objects[scene->object_count].vertices_count].y = y;
+				scene->objects[scene->object_count].vertices[scene->objects[scene->object_count].vertices_count].z = z;
+				scene->objects[scene->object_count].vertices[scene->objects[scene->object_count].vertices_count].w = 1;
 				scene->objects[scene->object_count].vertices_count++;
 			}
 		}
 	}
 	__builtin_printf("Successfully loaded %s (%i vertices, %i faces)\n", path, scene->objects[scene->object_count].vertices_count, scene->objects[scene->object_count].faces_count);
 	scene->object_count++;
+	close(fd);
 	return (0);
 }
